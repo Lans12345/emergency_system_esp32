@@ -16,11 +16,11 @@ void setup() {
 
 void loop() {
   if (digitalRead(button1) == HIGH) {
-    makeCall("+639xxxxxxxxx"); //replace with your desired phone number
+    makeCall("+639639530422"); //replace with your desired phone number
   }
   
   if (digitalRead(button2) == HIGH) {
-    sendSMS("+639xxxxxxxxx", getLocationMessage()); //replace with your desired phone number
+    sendSMS("+639639530422", getLocationMessage()); //replace with your desired phone number
   }
 }
 
