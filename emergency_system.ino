@@ -20,7 +20,7 @@ void loop() {
   }
   
   if (digitalRead(button2) == HIGH) {
-    sendSMS("+639xxxxxxxxx", "Help me, I'm in danger!"); //replace with your desired phone number and message
+    sendSMS("+639xxxxxxxxx", getLocationMessage()); //replace with your desired phone number
   }
 }
 
@@ -41,7 +41,23 @@ void sendSMS(String phoneNumber, String message) {
   digitalWrite(buzzer, LOW);
   delay(500);
   
+  gps.enableGPS();
+  delay(2000); //wait for GPS to stabilize
+  
+  float latitude = gps.getLatitude();
+  float longitude = gps.getLongitude();
+  
+  gps.disableGPS();
+  
+  String location = String(latitude, 6) + "," + String(longitude, 6);
+  message = message + " My location is: " + location;
+  
   gps.sendSMS(phoneNumber, message);
   
   delay(10000); //wait for 10 seconds before sending another SMS
+}
+
+String getLocationMessage() {
+  //customize your message here
+  return "Help me, I'm in danger!";
 }
