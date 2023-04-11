@@ -1,47 +1,168 @@
+#include <TinyGPSPlus.h>
 #include <SoftwareSerial.h>
 
-SoftwareSerial mySerial(8, 9); // RX, TX
+static const int RXPin = 6, TXPin = 5;
+String s = "www.google.com/maps/dir/";
 
-void setup() {
-  Serial.begin(9600);
-  mySerial.begin(9600);
+const int MAX_DATA_POINTS = 10;
+float f_buf[MAX_DATA_POINTS][2];
+
+unsigned long interval = 10000;
+static const uint32_t GPSBaud = 9600;
+unsigned long previousMillis = 0;
+int data_counter;
+
+const size_t BUFSIZE = 300;
+char f_buffer[BUFSIZE];
 
 
-  pinMode(11, OUTPUT);
+TinyGPSPlus gps;                 // The TinyGPSPlus object
+SoftwareSerial ss(RXPin, TXPin); // The serial connection to the GPS device
+
+void setup()
+{
+    Serial.begin(9600);
+    ss.begin(GPSBaud);
+    
 
   pinMode(12, INPUT); // Button for making phone call
-  pinMode(13, INPUT); // Button for sending SMS message
+  pinMode(13, INPUT);
+
+    Serial.println("Starting...");
+    ss.println("\r");
+    ss.println("AT\r");
+    delay(10);
+
+    ss.println("\r");
+    ss.println("AT+GPS=1\r");
+
+    delay(100);
+    ss.println("AT+CREG=2\r");
+    delay(6000);
+
+    // ss.print("AT+CREG?\r");
+    ss.println("AT+CGATT=1\r");
+    delay(6000);
+
+    ss.println("AT+CGDCONT=1,\"IP\",\"WWW\"\r");
+    delay(6000);
+
+    // ss.println("AT+LOCATION=1\r");
+    ss.println("AT+CGACT=1,1\r");
+    delay(6000);
+
+    // Initialize ends
+    // Initialize GPS
+    ss.println("\r");
+    ss.println("AT+GPS=1\r");
+    delay(1000);
+
+    // ss.println("AT+GPSMD=1\r");   // Change to only GPS mode from GPS+BDS, set to 2 to revert to default.
+    ss.println("AT+GPSRD=10\r");
+    delay(100);
+
+    // set SMS mode to text mode
+    ss.println("AT+CMGF=1\r");
+    delay(1000);
+
+    // ss.println("AT+LOCATION=2\r");
+
+    Serial.println("Setup Executed");
 }
 
-void loop() {
-  // Make phone call when button 1 is pressed
-  if (digitalRead(12) == HIGH) {
-mySerial.println("ATD+639639530422;");// Replace with the phone number you want to call
+void loop()
+{
+
+
+ 
+
+
+    smartDelay(2000);
+
+    if (millis() > 5000 && gps.charsProcessed() < 10)
+        Serial.println(F("No GPS data received: check wiring"));
+
+    unsigned long currentMillis = millis();
+
+    if ((unsigned long)(currentMillis - previousMillis) >= interval)
+    {
+
+
+       if (digitalRead(12) == HIGH) {
+ss.println("ATD+639639530422;");
     delay(30000);
-    mySerial.println("ATH"); // Hang up the call
+    mySerial.println("ATH");
   }
 
-  // Send SMS message when button 2 is pressed
   if (digitalRead(13) == HIGH) {
-    digitalWrite(11, HIGH);
-    mySerial.println("AT+CMGF=1"); // Set the SMS mode to text
-    delay(1000);
-mySerial.print("AT+CMGS=\"+639639530422\"");// Replace with the phone number you want to send SMS to
-    delay(10000);
-    mySerial.print("Help! I need assistance."); // Replace with the message you want to send
-    mySerial.write(26); // End the SMS message with Ctrl+Z
-    delay(10000); // Wait for the message to be sent
-
-    if (mySerial.find("OK")) {
-      Serial.println("Text message sent successfully.");
-    } else {
-Serial.println(mySerial.readString().c_str());
-      Serial.println("Error sending text message.");
-    }
+     send_gps_data();
   }
 
-  // Check for incoming data from the A9G module
-  while (mySerial.available()) {
-    Serial.write(mySerial.read());
+       
+        previousMillis = currentMillis;
+    }
+}
+
+static void smartDelay(unsigned long ms)
+{
+    unsigned long start = millis();
+    do
+    {
+        while (ss.available())
+            gps.encode(ss.read());
+    } while (millis() - start < ms);
+}
+
+void send_gps_data()
+{
+  if (gps.location.lat() == 0 || gps.location.lng() == 0)
+  {
+    Serial.println("Return Executed");
+    return;
+  }
+
+  data_counter++;
+
+  Serial.print("Latitude (deg): ");
+  f_buf[data_counter] = gps.location.lat();
+  Serial.println(f_buf[data_counter]);
+
+  Serial.print("Longitude (deg): ");
+  f_buf[data_counter + 1] = gps.location.lng();
+  Serial.println(f_buf[data_counter + 1]);
+
+  Serial.println(data_counter);
+  Serial.println();
+
+  s += String(gps.location.lat(), 6);
+  s += ",";
+  s += String(gps.location.lng(), 6);
+  s += "/";
+
+  Serial.println(s);
+
+  if (data_counter >= 10)
+  {
+    data_counter = 0;
+
+    Serial.println("Sending Message");
+
+    ss.println("AT+CMGF=1\r");
+    delay(1000);
+
+    ss.println("AT+CNMI=2,2,0,0,0\r");
+    delay(1000);
+
+    ss.print("AT+CMGS=\"+639639530422\"\r");
+    ss.print("AT+CMGS=\"+639639530423\"\r");
+    ss.print("AT+CMGS=\"+639639530424\"\r");
+    ss.print("AT+CMGS=\"+639639530425\"\r");
+    ss.print("AT+CMGS=\"+639639530426\"\r");
+    delay(1000);
+    ss.print("I have made an emergency call. You are receiving this message because I have listed you as an emergency contact. Here's my location: ");
+    ss.print(s);
+    ss.write(0x1A);
+    delay(1000);
+    s = "www.google.com/maps/dir/";
   }
 }
